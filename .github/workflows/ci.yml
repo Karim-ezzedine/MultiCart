@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    name: Build & Test (Swift)
+    runs-on: macos-14
+
+    # Simple matrix so we can easily expand later
+    strategy:
+      matrix:
+        xcode: [ "16.0" ]
+      fail-fast: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode ${{ matrix.xcode }}
+        run: |
+          sudo xcode-select -s /Applications/Xcode_${{ matrix.xcode }}.app || \
+          sudo xcode-select -s /Applications/Xcode.app
+          xcodebuild -version
+
+      - name: Show Swift version
+        run: swift --version
+
+      - name: Build & Test (swift test)
+        run: swift test --enable-code-coverage
