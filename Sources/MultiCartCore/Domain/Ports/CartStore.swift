@@ -1,5 +1,3 @@
-import Foundation
-
 /// Parameters used to fetch carts from a CartStore.
 ///
 /// Semantics:

@@ -1,5 +1,3 @@
-import Foundation
-
 /// Validates cart and item operations before they are accepted/persisted.
 ///
 /// Called by CartManager:

@@ -1,19 +1,3 @@
-import Foundation
-
-/// Computes cart totals from a given cart snapshot.
-///
-/// Used by:
-/// - CartManager.computeTotals(for:)
-/// - Any flow that needs up-to-date totals for a cart.
-///
-/// Typical flow:
-/// 1. Start from persisted cart.
-/// 2. Optionally run PromotionEngine.applyPromotions(to:).
-/// 3. Call CartPricingEngine.computeTotals(for:).
-public protocol CartPricingEngine: Sendable {
-    func computeTotals(for cart: Cart) async throws -> CartTotals
-}
-
 /// Applies promotions / discounts to a cart before pricing.
 ///
 /// Used by:
@@ -27,4 +11,3 @@ public protocol PromotionEngine: Sendable {
     /// attached promo metadata, etc.).
     func applyPromotions(to cart: Cart) async throws -> Cart
 }
-

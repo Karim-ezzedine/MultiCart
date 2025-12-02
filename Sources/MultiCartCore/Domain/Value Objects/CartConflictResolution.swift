@@ -1,5 +1,3 @@
-import Foundation
-
 /// Decision returned when a conflict is detected (e.g. catalog changes).
 public enum CartConflictResolution: Sendable {
     /// Use the provided, cleaned-up cart (e.g. with invalid items removed).
