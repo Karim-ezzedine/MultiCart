@@ -194,8 +194,11 @@ struct CartManagerDomainTests {
 // MARK: - Test doubles
 
 private struct NoOpPricingEngine: CartPricingEngine, Sendable {
-    func computeTotals(for cart: Cart) async throws -> CartTotals {
-        return CartTotals(
+    func computeTotals(
+        for cart: Cart,
+        context: CartPricingContext
+    ) async throws -> CartTotals {
+        CartTotals(
             subtotal: Money(amount: 0, currencyCode: "USD"),
             discount: Money(amount: 0, currencyCode: "USD"),
             grandTotal: Money(amount: 0, currencyCode: "USD")
