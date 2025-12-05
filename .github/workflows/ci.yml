@@ -31,4 +31,4 @@ jobs:
         run: swift --version
 
       - name: Build & Test (swift test)
-        run: swift test --enable-code-coverage --enable-experimental-swift-testing
+        run: swift test --enable-code-coverage
