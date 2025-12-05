@@ -194,6 +194,69 @@ public actor CartManager {
         }
     }
     
+    // MARK: - Pricing
+    
+    /// Computes totals for a specific cart ID using the configured pricing engine.
+    ///
+    /// This loads the cart by ID, builds a pricing context if none is provided,
+    /// and delegates the calculation to `CartPricingEngine`.
+    ///
+    /// - Parameters:
+    ///   - cartID: The identifier of the cart to price.
+    ///   - context: Optional pricing context (fees, tax, discounts, scope).
+    ///              If `nil`, a plain context is built from the cart’s
+    ///              `storeID` and `profileID`.
+    /// - Returns: The `CartTotals` produced by the pricing engine.
+    /// - Throws:
+    ///   - `MultiCartError.conflict` if the cart does not exist.
+    ///   - Any error thrown by the underlying `CartPricingEngine`.
+    public func getTotals(
+        for cartID: CartID,
+        context: CartPricingContext? = nil
+    ) async throws -> CartTotals {
+        guard let cart = try await config.cartStore.loadCart(id: cartID) else {
+            throw MultiCartError.conflict(reason: "Cart not found")
+        }
+        
+        // If caller didn’t provide a context, build a plain one from the cart.
+        let effectiveContext = context ?? .plain(
+            storeID: cart.storeID,
+            profileID: cart.profileID
+        )
+        
+        return try await config.pricingEngine.computeTotals(
+            for: cart,
+            context: effectiveContext
+        )
+    }
+    
+    /// Computes totals for the active cart in a given scope.
+    ///
+    /// The scope (store + optional profile) is taken from the
+    /// `CartPricingContext`. If no active cart exists for that scope,
+    /// this returns `nil` instead of throwing.
+    ///
+    /// - Parameter context: Pricing context describing the scope
+    ///   (`storeID` / `profileID`) and any fees, tax, or discounts.
+    /// - Returns: `CartTotals` for the active cart in that scope, or `nil`
+    ///            if no active cart exists.
+    /// - Throws: Any error thrown by the underlying `CartPricingEngine`.
+    public func getTotalsForActiveCart(
+        context: CartPricingContext
+    ) async throws -> CartTotals? {
+        let cart = try await getActiveCart(
+            storeID: context.storeID,
+            profileID: context.profileID
+        )
+        
+        guard let cart else { return nil }
+        
+        return try await config.pricingEngine.computeTotals(
+            for: cart,
+            context: context
+        )
+    }
+    
     // MARK: - Item operations
     
     /// Adds a new item to the given cart.
