@@ -30,3 +30,28 @@ public protocol CartAnalyticsSink: Sendable {
         from cart: Cart
     )
 }
+
+/// Default analytics sink used when the host app does not need cart analytics.
+///
+/// All methods are intentional no-ops, so `CartManager` can safely emit events
+/// without requiring any analytics wiring on the client side.
+public struct NoOpCartAnalyticsSink: CartAnalyticsSink {
+    public init() {}
+    
+    public func cartCreated(_ cart: Cart) {}
+    public func cartUpdated(_ cart: Cart) {}
+    public func cartDeleted(id: CartID) {}
+    
+    public func activeCartChanged(
+        newActiveCartId: CartID?,
+        storeId: StoreID,
+        profileId: UserProfileID?
+    ) {}
+    
+    public func itemAdded(_ item: CartItem, in cart: Cart) {}
+    public func itemUpdated(_ item: CartItem, in cart: Cart) {}
+    public func itemRemoved(
+        itemId: CartItemID,
+        from cart: Cart
+    ) {}
+}

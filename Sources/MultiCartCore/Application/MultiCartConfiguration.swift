@@ -14,11 +14,11 @@ public struct MultiCartConfiguration: Sendable {
 
     public init(
         cartStore: CartStore,
-        pricingEngine: CartPricingEngine,
-        promotionEngine: PromotionEngine,
-        validationEngine: CartValidationEngine,
+        pricingEngine: CartPricingEngine = DefaultCartPricingEngine(),
+        promotionEngine: PromotionEngine = DefaultPromotionEngine(),
+        validationEngine: CartValidationEngine = DefaultCartValidationEngine(),
         conflictResolver: CartConflictResolver,
-        analyticsSink: CartAnalyticsSink
+        analyticsSink: CartAnalyticsSink = NoOpCartAnalyticsSink()
     ) {
         self.cartStore = cartStore
         self.pricingEngine = pricingEngine

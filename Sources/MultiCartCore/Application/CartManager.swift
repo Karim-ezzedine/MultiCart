@@ -31,7 +31,9 @@ public actor CartManager {
         displayName: String? = nil,
         context: String? = nil,
         storeImageURL: URL? = nil,
-        metadata: [String: String] = [:]
+        metadata: [String: String] = [:],
+        minSubtotal: Money? = nil,
+        maxItemCount: Int? = nil
     ) async throws -> Cart {
         let now = Date()
         
@@ -46,7 +48,9 @@ public actor CartManager {
             metadata: metadata,
             displayName: displayName,
             context: context,
-            storeImageURL: storeImageURL
+            storeImageURL: storeImageURL,
+            minSubtotal: minSubtotal,
+            maxItemCount: maxItemCount
         )
         
         try await config.cartStore.saveCart(cart)
@@ -121,6 +125,11 @@ public actor CartManager {
         
         // If we're checking out, enforce full-cart validation first.
         if newStatus == .checkedOut {
+            
+            guard cart.profileID != nil else {
+                throw MultiCartError.validationFailed(reason: "Profile ID is missing, cannot update cart status to checkedOut")
+            }
+            
             let result = await config.validationEngine.validate(cart: cart)
             switch result {
             case .valid:
@@ -157,7 +166,9 @@ public actor CartManager {
         displayName: String? = nil,
         context: String? = nil,
         storeImageURL: URL? = nil,
-        metadata: [String: String]? = nil
+        metadata: [String: String]? = nil,
+        minSubtotal: Money? = nil,
+        maxItemCount: Int? = nil
     ) async throws -> Cart {
         var cart = try await loadMutableCart(for: cartID)
         
@@ -172,6 +183,12 @@ public actor CartManager {
         }
         if let metadata {
             cart.metadata = metadata
+        }
+        if let minSubtotal {
+            cart.minSubtotal = minSubtotal
+        }
+        if let maxItemCount {
+            cart.maxItemCount = maxItemCount
         }
         
         let updatedCart = try await saveCartAfterMutation(cart)

@@ -14,11 +14,7 @@ struct CartManagerDomainTests {
 
         let config = MultiCartConfiguration(
             cartStore: store,
-            pricingEngine: NoOpPricingEngine(),
-            promotionEngine: NoOpPromotionEngine(),
-            validationEngine: AllowAllValidationEngine(),
             conflictResolver: NoOpConflictResolver(),
-            analyticsSink: NoOpAnalyticsSink()
         )
 
         return CartManager(configuration: config)
@@ -116,8 +112,9 @@ struct CartManagerDomainTests {
     func updateStatus_allowsActiveToCheckedOut() async throws {
         let manager = makeManager()
         let storeID = StoreID(rawValue: "store_status")
+        let profileID = UserProfileID(rawValue: "user_1")
 
-        let cart = try await manager.setActiveCart(storeID: storeID)
+        let cart = try await manager.setActiveCart(storeID: storeID, profileID: profileID)
 
         let updated = try await manager.updateStatus(
             for: cart.id,
@@ -131,8 +128,9 @@ struct CartManagerDomainTests {
     func updateStatus_disallowsCheckedOutBackToActive() async throws {
         let manager = makeManager()
         let storeID = StoreID(rawValue: "store_status_back")
+        let profileID = UserProfileID(rawValue: "user_1")
 
-        let cart = try await manager.setActiveCart(storeID: storeID)
+        let cart = try await manager.setActiveCart(storeID: storeID, profileID: profileID)
         _ = try await manager.updateStatus(for: cart.id, to: .checkedOut)
 
         await #expect(throws: MultiCartError.self) {
