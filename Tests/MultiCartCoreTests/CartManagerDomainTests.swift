@@ -200,15 +200,17 @@ private struct NoOpPricingEngine: CartPricingEngine, Sendable {
     ) async throws -> CartTotals {
         CartTotals(
             subtotal: Money(amount: 0, currencyCode: "USD"),
-            discount: Money(amount: 0, currencyCode: "USD"),
             grandTotal: Money(amount: 0, currencyCode: "USD")
         )
     }
 }
 
 private struct NoOpPromotionEngine: PromotionEngine, Sendable {
-    func applyPromotions(to cart: Cart) async throws -> Cart {
-        return cart
+    func applyPromotions(
+        _ promotions: [PromotionKind: AppliedPromotion],
+        to cartTotals: MultiCartCore.CartTotals
+    ) async throws -> MultiCartCore.CartTotals {
+        return cartTotals
     }
 }
 
