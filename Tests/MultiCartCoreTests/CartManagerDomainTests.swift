@@ -205,7 +205,7 @@ private struct NoOpPricingEngine: CartPricingEngine, Sendable {
 
 private struct NoOpPromotionEngine: PromotionEngine, Sendable {
     func applyPromotions(
-        _ promotions: [PromotionKind: AppliedPromotion],
+        _ promotions: [PromotionKind],
         to cartTotals: MultiCartCore.CartTotals
     ) async throws -> MultiCartCore.CartTotals {
         return cartTotals

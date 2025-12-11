@@ -3,10 +3,10 @@ import Foundation
 /// Default, stateless promotion engine used by the SDK.
 ///
 /// Applies a simple set of cart-level rules on top of existing `CartTotals`:
-/// - `.freeDelivery`          → sets `deliveryFee` to zero.
-/// - `.percentageOffCart`    → applies a percentage discount on `subtotal` (clamped at 0).
-/// - `.fixedAmountOffCart`   → subtracts a fixed amount from `subtotal` (clamped at 0).
-/// - `.custom`               → ignored for now (no-op).
+/// - `.freeDelivery`        → sets `deliveryFee` to zero.
+/// - `.percentageOffCart`   → applies one or more percentage discounts on `subtotal` (clamped at 0).
+/// - `.fixedAmountOffCart`  → subtracts one or more fixed amounts from `subtotal` (clamped at 0).
+/// - `.custom`              → ignored for now (no-op).
 ///
 /// The engine then recomputes `grandTotal` as:
 /// `subtotal + deliveryFee + serviceFee + tax`.
@@ -19,7 +19,7 @@ public struct DefaultPromotionEngine: PromotionEngine, Sendable {
     public init() {}
     
     public func applyPromotions(
-        _ promotions: [PromotionKind : AppliedPromotion],
+        _ promotions: [PromotionKind],
         to cartTotal: CartTotals
     ) async throws -> CartTotals {
         
@@ -34,25 +34,33 @@ public struct DefaultPromotionEngine: PromotionEngine, Sendable {
         let tax = cartTotal.tax
         
         // freeDelivery → deliveryFee = 0
-        if let _ = promotions[PromotionKind.freeDelivery] {
+        if promotions.contains(.freeDelivery) {
             deliveryFee = .zero(currencyCode: currency)
         }
         
-        // percentageOffCart → percentage discount on subtotal (clamped ≥ 0)
-        if let percentKey = promotions.keys.compactMap(percentageValue).first {
-            if percentKey > 0 {
-                let discountAmount = subtotal.amount * percentKey
-                let newAmount = subtotal.amount - discountAmount
-                let clamped = max(newAmount, 0)
-                subtotal = Money(amount: clamped, currencyCode: currency)
-            }
+        // Aggregate all percentageOffCart discounts.
+        // Example: 0.10 + 0.05 = 0.15 total (15% off).
+        let totalPercentage: Decimal = promotions
+            .compactMap(percentageValue)
+            .reduce(0, +)
+        
+        if totalPercentage > 0 {
+            let discountAmount = subtotal.amount * totalPercentage
+            let newAmount = subtotal.amount - discountAmount
+            let clamped = max(newAmount, 0)
+            subtotal = Money(amount: clamped, currencyCode: currency)
         }
         
-        // fixedAmountOffCart → fixed discount on subtotal (clamped ≥ 0)
-        if let fixedMoney = promotions.keys.compactMap(fixedAmountValue).first {
-            // Ignore negative discounts; clamp subtotal at zero.
-            let discountAmount = max(fixedMoney.amount, 0)
-            let newAmount = subtotal.amount - discountAmount
+        // Aggregate all fixedAmountOffCart discounts.
+        let totalFixedDiscount: Decimal = promotions
+            .compactMap(fixedAmountValue)
+            .reduce(0) { partial, money in
+                // Ignore negative discounts; accumulate only positive values.
+                partial + max(money.amount, 0)
+            }
+        
+        if totalFixedDiscount > 0 {
+            let newAmount = subtotal.amount - totalFixedDiscount
             let clamped = max(newAmount, 0)
             subtotal = Money(amount: clamped, currencyCode: currency)
         }
@@ -76,15 +84,15 @@ public struct DefaultPromotionEngine: PromotionEngine, Sendable {
     }
     
     
-    //MARK: - Helpers
+    // MARK: - Helpers
     
-    private func percentageValue(_ key: PromotionKind) -> Decimal? {
-        if case let .percentageOffCart(value) = key { return value }
+    private func percentageValue(_ kind: PromotionKind) -> Decimal? {
+        if case let .percentageOffCart(value) = kind { return value }
         return nil
     }
     
-    private func fixedAmountValue(_ key: PromotionKind) -> Money? {
-        if case let .fixedAmountOffCart(money) = key { return money }
+    private func fixedAmountValue(_ kind: PromotionKind) -> Money? {
+        if case let .fixedAmountOffCart(money) = kind { return money }
         return nil
     }
 }

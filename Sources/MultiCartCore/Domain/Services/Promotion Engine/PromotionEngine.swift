@@ -1,29 +1,29 @@
-/// Applies promotions / discounts to a cart before pricing.
+/// Applies an array of promotions or discounts to the given cart totals.
 ///
 /// Used by:
 /// - Pricing flows inside `CartManager` prior to `CartPricingEngine`.
 ///
 /// The promotion engine is an extension point:
-/// - It can attach or update promotions on the cart,
-/// - and/or adjust the `CartPricingContext` (e.g. override delivery fee,
-///   add a promo-specific discount), without assuming the user is logged in.
+/// - It can evaluate and apply one or more promotions to the current cart totals,
+/// - and adjust fields such as delivery fee, subtotal, or discounts as needed,
+///   without assuming the user is logged in.
 public protocol PromotionEngine: Sendable {
     
-    /// Returns a modified cart and pricing context with promotions applied.
+    /// Applies the provided promotions to an existing `CartTotals` value.
     ///
     /// Typical responsibilities:
-    /// - read store/profile/campaign information from the cart and context,
-    /// - decide which promotions apply for this cart,
-    /// - update `cart.appliedPromotions` and/or the `pricingContext`
-    ///   (fees, discounts, tax rate, etc.).
+    /// - inspect the incoming `promotions` to determine applicable discounts,
+    /// - update the provided `CartTotals` accordingly (e.g. modify subtotal,
+    ///   delivery fee, or grand total),
+    /// - ensure the resulting totals are correctly clamped (e.g. non-negative).
     ///
     /// - Parameters:
-    ///   - cart: The current cart snapshot.
-    ///   - context: The incoming pricing context (scope + fees/tax/discounts).
-    /// - Returns: A tuple of `(cart, pricingContext)` after promotions.
-    /// - Throws: Any error if promotion evaluation fails.
+    ///   - promotions: An array  of `PromotionKind` values to apply.
+    ///   - cartTotals: The current computed cart totals before promotions.
+    /// - Returns: A new `CartTotals` instance reflecting all applied promotions.
+    /// - Throws: Any error if promotion evaluation or computation fails.
     func applyPromotions(
-        _ promotions: [PromotionKind: AppliedPromotion],
+        _ promotions: [PromotionKind],
         to cartTotals: CartTotals
     ) async throws -> CartTotals
 }

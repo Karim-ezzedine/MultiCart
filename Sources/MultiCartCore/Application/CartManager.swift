@@ -238,7 +238,7 @@ public actor CartManager {
     public func getTotals(
         for cartID: CartID,
         context: CartPricingContext? = nil,
-        with promotions: [PromotionKind: AppliedPromotion]? = nil
+        with promotions: [PromotionKind]? = nil
     ) async throws -> CartTotals {
         guard let cart = try await config.cartStore.loadCart(id: cartID) else {
             throw MultiCartError.conflict(reason: "Cart not found")
@@ -276,7 +276,7 @@ public actor CartManager {
     ///           `PromotionEngine`.
     public func getTotalsForActiveCart(
         context: CartPricingContext,
-        with promotions: [PromotionKind: AppliedPromotion]? = nil
+        with promotions: [PromotionKind]? = nil
     ) async throws -> CartTotals? {
         let cart = try await getActiveCart(
             storeID: context.storeID,
@@ -313,7 +313,7 @@ public actor CartManager {
     ///            totals when no promotions are provided.
     /// - Throws: Any error thrown by the configured `PromotionEngine`.
     public func applyPromotionsIfAvailable(
-        _ promotions: [PromotionKind: AppliedPromotion]? = nil,
+        _ promotions: [PromotionKind]? = nil,
         to cartTotals: CartTotals
     ) async throws -> CartTotals {
         if let promotions = promotions {

@@ -19,5 +19,5 @@ public enum PromotionKind: Hashable, Codable, Sendable {
     ///
     /// `kind` can be something like "FREE SERVICE FEE", "FREE TAX", etc.
     ///  We can add those kind in V2
-    case custom(kind: String)
+    case custom(kind: String, value: Decimal)
 }

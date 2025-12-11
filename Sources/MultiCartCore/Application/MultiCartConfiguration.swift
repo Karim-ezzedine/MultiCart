@@ -9,7 +9,7 @@ public struct MultiCartConfiguration: Sendable {
     public let pricingEngine: CartPricingEngine
     public let promotionEngine: PromotionEngine
     public let validationEngine: CartValidationEngine
-    public let conflictResolver: CartConflictResolver
+    public let conflictResolver: CartConflictResolver?
     public let analyticsSink: CartAnalyticsSink
 
     public init(
@@ -17,7 +17,7 @@ public struct MultiCartConfiguration: Sendable {
         pricingEngine: CartPricingEngine = DefaultCartPricingEngine(),
         promotionEngine: PromotionEngine = DefaultPromotionEngine(),
         validationEngine: CartValidationEngine = DefaultCartValidationEngine(),
-        conflictResolver: CartConflictResolver,
+        conflictResolver: CartConflictResolver? = nil,
         analyticsSink: CartAnalyticsSink = NoOpCartAnalyticsSink()
     ) {
         self.cartStore = cartStore
