@@ -10,6 +10,6 @@ public protocol CartConflictResolver: Sendable {
     /// Given a conflicting cart + reason, decide how to proceed.
     func resolveConflict(
         for cart: Cart,
-        reason: MultiCartError
+        reason: CartError
     ) async -> CartConflictResolution
 }

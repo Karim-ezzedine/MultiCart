@@ -1,5 +1,5 @@
-/// High-level error type used by MultiCart core.
-public enum MultiCartError: Error, Equatable, Sendable {
+/// High-level error type used by Cart core.
+public enum CartError: Error, Equatable, Sendable {
     case validationFailed(reason: String)
     case pricingFailed(reason: String)
     case conflict(reason: String)

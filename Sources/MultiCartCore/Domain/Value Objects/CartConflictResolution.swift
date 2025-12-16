@@ -4,5 +4,5 @@ public enum CartConflictResolution: Sendable {
     case acceptModifiedCart(Cart)
     
     /// Abort and surface an error back to the caller.
-    case rejectWithError(MultiCartError)
+    case rejectWithError(CartError)
 }

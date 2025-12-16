@@ -3,7 +3,7 @@
 /// This is the "composition root" contract for the SDK:
 /// host apps (or storage modules) provide concrete implementations for
 /// ports and domain services, and `CartManager` uses only those abstractions.
-public struct MultiCartConfiguration: Sendable {
+public struct CartConfiguration: Sendable {
 
     public let cartStore: CartStore
     public let pricingEngine: CartPricingEngine

@@ -13,7 +13,7 @@ import Foundation
 ///
 /// This is a pure domain service (no side effects) and the default
 /// `PromotionEngine` implementation; apps can inject their own engine
-/// via `MultiCartConfiguration` if they need different rules.
+/// via `CartConfiguration` if they need different rules.
 public struct DefaultPromotionEngine: PromotionEngine, Sendable {
     
     public init() {}

@@ -61,7 +61,7 @@ struct CartManagerAnalyticsIntegrationTests {
         let store = InMemoryCartStore(initialCarts: [])
         let analytics = SpyCartAnalyticsSink()
         
-        let config = MultiCartConfiguration(
+        let config = CartConfiguration(
             cartStore: store,
             analyticsSink: analytics
         )

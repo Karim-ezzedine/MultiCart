@@ -49,6 +49,9 @@ let package = Package(
             name: "MultiCartStorageCoreData",
             dependencies: [
                 "MultiCartCore"
+            ],
+            resources: [
+                .process("Resources")
             ]
         ),
 

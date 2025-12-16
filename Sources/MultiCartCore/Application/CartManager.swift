@@ -13,11 +13,11 @@ public actor CartManager {
     
     // MARK: - Dependencies
     
-    private let config: MultiCartConfiguration
+    private let config: CartConfiguration
     
     // MARK: - Init
     
-    public init(configuration: MultiCartConfiguration) {
+    public init(configuration: CartConfiguration) {
         self.config = configuration
     }
     
@@ -107,7 +107,7 @@ public actor CartManager {
     ///
     /// When transitioning to `.checkedOut`, the cart is first validated via
     /// the configured `CartValidationEngine.validate(cart:)`. If validation
-    /// fails, a `MultiCartError.validationFailed` is thrown.
+    /// fails, a `CartError.validationFailed` is thrown.
     @discardableResult
     public func updateStatus(
         for cartID: CartID,
@@ -127,7 +127,7 @@ public actor CartManager {
         if newStatus == .checkedOut {
             
             guard cart.profileID != nil else {
-                throw MultiCartError.validationFailed(reason: "Profile ID is missing, cannot update cart status to checkedOut")
+                throw CartError.validationFailed(reason: "Profile ID is missing, cannot update cart status to checkedOut")
             }
             
             let result = await config.validationEngine.validate(cart: cart)
@@ -135,7 +135,7 @@ public actor CartManager {
             case .valid:
                 break
             case .invalid(let error):
-                throw MultiCartError.validationFailed(reason: error.message)
+                throw CartError.validationFailed(reason: error.message)
             }
         }
         
@@ -233,7 +233,7 @@ public actor CartManager {
     ///                 promotions will be applied on top of the base totals via the `PromotionEngine`.
     /// - Returns: The final `CartTotals` after pricing and any applied promotions.
     /// - Throws:
-    ///   - `MultiCartError.conflict` if the cart does not exist.
+    ///   - `CartError.conflict` if the cart does not exist.
     ///   - Any error thrown by the configured `CartPricingEngine` or `PromotionEngine`.
     public func getTotals(
         for cartID: CartID,
@@ -241,7 +241,7 @@ public actor CartManager {
         with promotions: [PromotionKind]? = nil
     ) async throws -> CartTotals {
         guard let cart = try await config.cartStore.loadCart(id: cartID) else {
-            throw MultiCartError.conflict(reason: "Cart not found")
+            throw CartError.conflict(reason: "Cart not found")
         }
         
         // If caller didn’t provide a context, build a plain one from the cart.
@@ -332,12 +332,12 @@ public actor CartManager {
     /// - Parameter cartID: Identifier of the cart to validate.
     /// - Returns: `CartValidationResult` describing whether the cart is valid
     ///            for checkout and, if not, why.
-    /// - Throws: `MultiCartError.conflict` if the cart cannot be loaded.
+    /// - Throws: `CartError.conflict` if the cart cannot be loaded.
     public func validateBeforeCheckout(
         cartID: CartID
     ) async throws -> CartValidationResult {
         guard let cart = try await config.cartStore.loadCart(id: cartID) else {
-            throw MultiCartError.conflict(reason: "Cart not found")
+            throw CartError.conflict(reason: "Cart not found")
         }
         
         return await config.validationEngine.validate(cart: cart)
@@ -381,7 +381,7 @@ public actor CartManager {
         var cart = try await loadMutableCart(for: cartID)
         
         guard let index = cart.items.firstIndex(where: { $0.id == updatedItem.id }) else {
-            throw MultiCartError.conflict(reason: "Item not found in cart")
+            throw CartError.conflict(reason: "Item not found in cart")
         }
         
         try await validateItemChange(in: cart, item: updatedItem)
@@ -409,7 +409,7 @@ public actor CartManager {
         var cart = try await loadMutableCart(for: cartID)
         
         guard let index = cart.items.firstIndex(where: { $0.id == itemID }) else {
-            throw MultiCartError.conflict(reason: "Item not found in cart")
+            throw CartError.conflict(reason: "Item not found in cart")
         }
         
         let removedItem = cart.items.remove(at: index)
@@ -432,15 +432,15 @@ public actor CartManager {
     /// - The cart exists in the underlying store.
     /// - The cart has `status == .active`.
     ///
-    /// Non-existing or non-active carts result in a `MultiCartError.conflict`
+    /// Non-existing or non-active carts result in a `CartError.conflict`
     /// so that callers know the operation cannot proceed on this cart.
     private func loadMutableCart(for id: CartID) async throws -> Cart {
         guard let cart = try await config.cartStore.loadCart(id: id) else {
-            throw MultiCartError.conflict(reason: "Cart not found")
+            throw CartError.conflict(reason: "Cart not found")
         }
         
         guard cart.status == .active else {
-            throw MultiCartError.conflict(reason: "Cart is not active")
+            throw CartError.conflict(reason: "Cart is not active")
         }
         
         return cart
@@ -452,7 +452,7 @@ public actor CartManager {
     /// `ensureValidStatusTransition(from:to:)`.
     private func loadCartForStatusChange(id: CartID) async throws -> Cart {
         guard let cart = try await config.cartStore.loadCart(id: id) else {
-            throw MultiCartError.conflict(reason: "Cart not found")
+            throw CartError.conflict(reason: "Cart not found")
         }
         return cart
     }
@@ -460,13 +460,13 @@ public actor CartManager {
     /// Validates a proposed item change against the configured validation engine.
     ///
     /// This helper calls `CartValidationEngine.validateItemChange(in:proposedItem:)`
-    /// and translates the resulting `CartValidationResult` into a `MultiCartError`
+    /// and translates the resulting `CartValidationResult` into a `CartError`
     /// when the change is not allowed.
     ///
     /// - Parameters:
     ///   - cart: The current cart snapshot before applying the change.
     ///   - item: The item state we want to apply to the cart.
-    /// - Throws: `MultiCartError.validationFailed` when the validation engine
+    /// - Throws: `CartError.validationFailed` when the validation engine
     ///           reports an invalid change.
     private func validateItemChange(
         in cart: Cart,
@@ -481,7 +481,7 @@ public actor CartManager {
         case .valid:
             return
         case .invalid(let error):
-            throw MultiCartError.validationFailed(reason: error.message)
+            throw CartError.validationFailed(reason: error.message)
         }
     }
     
@@ -522,6 +522,6 @@ public actor CartManager {
             return
         }
         
-        throw MultiCartError.conflict(reason: "Invalid cart status transition")
+        throw CartError.conflict(reason: "Invalid cart status transition")
     }
 }

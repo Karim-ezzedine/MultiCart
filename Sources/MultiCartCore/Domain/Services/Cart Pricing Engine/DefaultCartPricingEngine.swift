@@ -1,21 +1,15 @@
 import Foundation
 
 /// Simple default pricing implementation:
-/// - `subtotal`  = sum of `unitPrice * quantity` for all items.
-/// - `tax`  = `subtotal * taxRate` from the context.
+/// - `subtotal`  = sum of `(unitPrice + modifiersDeltaPerUnit) * quantity` for all items.
+/// - `tax`       = `subtotal * taxRate` from the context.
 /// - `deliveryFee` = `context.deliveryFee` (or zero if `nil`).
 /// - `serviceFee`  = `context.serviceFee` (or zero if `nil`).
 /// - `grandTotal`  = `subtotal + deliveryFee + serviceFee + tax`.
 ///
-/// The resulting `CartTotals` exposes:
-/// - `subtotal`  (line items),
-/// - `deliveryFee` (delivery-related charges),
-/// - `serviceFee` (service-related charges),
-/// - `tax`,
-/// - `grandTotal` (final payable amount).
-///
-/// This implementation does not interpret promotions; those are applied
-/// separately by `PromotionEngine` on top of these base totals.
+/// Notes:
+/// - Modifiers are treated as **per-unit** price deltas (e.g., “extra cheese +$1”).
+/// - This implementation assumes a single currency across the cart and all modifiers.
 public struct DefaultCartPricingEngine: CartPricingEngine, Sendable {
     
     public init() {}
@@ -31,11 +25,18 @@ public struct DefaultCartPricingEngine: CartPricingEngine, Sendable {
         context.serviceFee?.currencyCode ??
         context.deliveryFee?.currencyCode ?? "USD"
         
-        // Subtotal of line items
+        // Subtotal of line items (including modifiers).
         var subtotalAmount = Decimal(0)
+        
         for item in cart.items {
-            subtotalAmount += item.unitPrice.amount * Decimal(item.quantity)
+            let modifiersPerUnit = item.modifiers.reduce(Decimal(0)) { partial, modifier in
+                partial + modifier.priceDelta.amount
+            }
+            
+            let unitWithModifiers = item.unitPrice.amount + modifiersPerUnit
+            subtotalAmount += unitWithModifiers * Decimal(item.quantity)
         }
+        
         let subtotal = Money(amount: subtotalAmount, currencyCode: currencyCode)
         
         // Tax
@@ -46,7 +47,7 @@ public struct DefaultCartPricingEngine: CartPricingEngine, Sendable {
         let feesAmount =
         (context.serviceFee?.amount ?? 0) +
         (context.deliveryFee?.amount ?? 0)
-                
+        
         // Grand total
         let grandAmount =
         subtotal.amount +

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="24512" systemVersion="25C5048a" minimumToolsVersion="Automatic" sourceLanguage="Swift" usedWithSwiftData="YES" userDefinedModelVersionIdentifier="">
+    <entity name="CDCart" representedClassName="CDCart" syncable="YES">
+        <attribute name="context" optional="YES" attributeType="String"/>
+        <attribute name="createdAt" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="displayName" optional="YES" attributeType="String"/>
+        <attribute name="id" attributeType="String"/>
+        <attribute name="maxItemCount" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="metadataJSON" optional="YES" attributeType="Binary"/>
+        <attribute name="minSubtotalAmount" optional="YES" attributeType="Decimal" defaultValueString="0.0"/>
+        <attribute name="minSubtotalCurrencyCode" optional="YES" attributeType="String"/>
+        <attribute name="profileId" optional="YES" attributeType="String"/>
+        <attribute name="status" attributeType="String"/>
+        <attribute name="storeId" attributeType="String"/>
+        <attribute name="storeImageURL" optional="YES" attributeType="String"/>
+        <attribute name="updatedAt" attributeType="Date" usesScalarValueType="NO"/>
+        <relationship name="items" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="CDCartItem" inverseName="cart" inverseEntity="CDCartItem"/>
+    </entity>
+    <entity name="CDCartItem" representedClassName="CDCartItem" syncable="YES">
+        <attribute name="availableStock" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="id" attributeType="String"/>
+        <attribute name="imageURL" optional="YES" attributeType="String"/>
+        <attribute name="productId" attributeType="String"/>
+        <attribute name="quantity" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="totalPriceAmount" optional="YES" attributeType="Decimal" defaultValueString="0.0"/>
+        <attribute name="totalPriceCurrencyCode" optional="YES" attributeType="String"/>
+        <attribute name="unitPriceAmount" attributeType="Decimal" defaultValueString="0.0"/>
+        <attribute name="unitPriceCurrencyCode" optional="YES" attributeType="String"/>
+        <relationship name="cart" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="CDCart" inverseName="items" inverseEntity="CDCart"/>
+        <relationship name="modifiers" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="CDCartItemModifier"/>
+    </entity>
+    <entity name="CDCartItemModifier" representedClassName="CDCartItemModifier" syncable="YES">
+        <attribute name="id" attributeType="String"/>
+        <attribute name="name" attributeType="String"/>
+        <attribute name="priceDeltaAmount" attributeType="Decimal" defaultValueString="0.0"/>
+        <attribute name="priceDeltaCurrencyCode" attributeType="String"/>
+        <relationship name="item" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="CDCartItem"/>
+    </entity>
+</model>

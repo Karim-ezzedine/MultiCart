@@ -12,7 +12,7 @@ struct CartManagerDomainTests {
     ) -> CartManager {
         let store = InMemoryCartStore(initialCarts: initialCarts)
 
-        let config = MultiCartConfiguration(
+        let config = CartConfiguration(
             cartStore: store,
             conflictResolver: NoOpConflictResolver()
         )
@@ -133,7 +133,7 @@ struct CartManagerDomainTests {
         let cart = try await manager.setActiveCart(storeID: storeID, profileID: profileID)
         _ = try await manager.updateStatus(for: cart.id, to: .checkedOut)
 
-        await #expect(throws: MultiCartError.self) {
+        await #expect(throws: CartError.self) {
             _ = try await manager.updateStatus(for: cart.id, to: .active)
         }
     }
@@ -226,7 +226,7 @@ private struct AllowAllValidationEngine: CartValidationEngine, Sendable {
 }
 
 private struct NoOpConflictResolver: CartConflictResolver, Sendable {
-    func resolveConflict(for cart: Cart, reason: MultiCartError) async -> CartConflictResolution {
+    func resolveConflict(for cart: Cart, reason: CartError) async -> CartConflictResolution {
         .acceptModifiedCart(cart)
     }
 }
