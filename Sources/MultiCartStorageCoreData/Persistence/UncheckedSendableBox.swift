@@ -1,11 +1,3 @@
-//
-//  UncheckedSendableBox.swift
-//  MultiCart
-//
-//  Created by Karim Ezzedine on 17/12/2025.
-//
-
-
 import Foundation
 
 /// A minimal wrapper used to pass non-Sendable references across `@Sendable` closures.
