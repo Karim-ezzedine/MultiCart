@@ -27,7 +27,7 @@ public actor CoreDataCartStore {
     ///
     /// - Parameter configuration: Host-configurable store settings, including in-memory mode and store URL.
     /// - Throws: `CoreDataCartStoreError` if the model cannot be found/loaded or if the persistent store fails to load.
-    public init(configuration: CoreDataCartStoreConfiguration) async throws {
+    public init(configuration: CoreDataCartStoreConfiguration = .init()) async throws {
         let model = try Self.loadManagedObjectModel(modelName: configuration.modelName)
         
         let container = NSPersistentContainer(
