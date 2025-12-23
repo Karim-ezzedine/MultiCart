@@ -78,8 +78,16 @@ let package = Package(
             name: "MultiCartCoreTests",
             dependencies: [
                 "MultiCartCore",
-                "MultiCartTestingSupport",
-                "MultiCartStorageCoreData"
+                "MultiCartTestingSupport"
+            ]
+        ),
+        
+        .testTarget(
+            name: "CartStorageCoreDataTests",
+            dependencies: [
+                "MultiCartStorageCoreData",
+                "MultiCartCore",
+                "MultiCartTestingSupport"
             ]
         )
     ]
