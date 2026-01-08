@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="24512" systemVersion="25B78" minimumToolsVersion="Automatic" sourceLanguage="Swift" usedWithSwiftData="YES" userDefinedModelVersionIdentifier="">
-    <entity name="CDCart" representedClassName="CDCart" syncable="YES" codeGenerationType="class">
+    <entity name="CDCart" representedClassName="CDCart" syncable="YES">
         <attribute name="context" optional="YES" attributeType="String"/>
         <attribute name="createdAt" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="displayName" optional="YES" attributeType="String"/>
@@ -16,7 +16,7 @@
         <attribute name="updatedAt" attributeType="Date" usesScalarValueType="NO"/>
         <relationship name="items" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="CDCartItem" inverseName="cart" inverseEntity="CDCartItem"/>
     </entity>
-    <entity name="CDCartItem" representedClassName="CDCartItem" syncable="YES" codeGenerationType="class">
+    <entity name="CDCartItem" representedClassName="CDCartItem" syncable="YES">
         <attribute name="availableStock" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
         <attribute name="id" attributeType="String"/>
         <attribute name="imageURL" optional="YES" attributeType="String"/>
@@ -29,7 +29,7 @@
         <relationship name="cart" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="CDCart" inverseName="items" inverseEntity="CDCart"/>
         <relationship name="modifiers" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="CDCartItemModifier"/>
     </entity>
-    <entity name="CDCartItemModifier" representedClassName="CDCartItemModifier" syncable="YES" codeGenerationType="class">
+    <entity name="CDCartItemModifier" representedClassName="CDCartItemModifier" syncable="YES">
         <attribute name="id" attributeType="String"/>
         <attribute name="name" attributeType="String"/>
         <attribute name="priceDeltaAmount" attributeType="Decimal" defaultValueString="0.0"/>
