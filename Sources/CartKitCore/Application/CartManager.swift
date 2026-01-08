@@ -38,7 +38,8 @@ public actor CartManager {
         storeImageURL: URL? = nil,
         metadata: [String: String] = [:],
         minSubtotal: Money? = nil,
-        maxItemCount: Int? = nil
+        maxItemCount: Int? = nil,
+        status: CartStatus
     ) async throws -> Cart {
         let now = Date()
         
@@ -47,7 +48,7 @@ public actor CartManager {
             storeID: storeID,
             profileID: profileID,
             items: [],
-            status: .active,
+            status: status,
             createdAt: now,
             updatedAt: now,
             metadata: metadata,
@@ -58,10 +59,7 @@ public actor CartManager {
             maxItemCount: maxItemCount
         )
         
-        try await config.cartStore.saveCart(cart)
-        config.analyticsSink.cartCreated(cart)
-        
-        return cart
+        return try await persistNewCart(cart, setAsActive: status == .active)
     }
     
     /// Ensures there is a single active cart for the given scope.
@@ -81,7 +79,8 @@ public actor CartManager {
         // No active cart? Create a new one.
         let newCart = try await createCart(
             storeID: storeID,
-            profileID: profileID
+            profileID: profileID,
+            status: .active
         )
         
         return newCart
@@ -225,52 +224,87 @@ public actor CartManager {
         }
     }
     
-    /// Reorder flow:
-    /// - creates a new active cart copy from a source cart\n
-    /// - expires any existing active cart in that scope
-    /// - emits activeCartChanged to the new cart
+    /// Creates a new active cart by copying a source cart (reorder use case).
+    ///
+    /// The reorder flow:
+    /// - expires the current active cart for the same scope (if any),
+    /// - creates a new cart with regenerated `CartItemID`s,
+    /// - persists it and emits `activeCartChanged`.
     public func reorder(from sourceCartID: CartID) async throws -> Cart {
-        guard let source = try await config.cartStore.loadCart(id: sourceCartID) else {
-            throw CartError.conflict(reason: "Cart not found")
-        }
+        let source = try await loadCartOrThrow(sourceCartID)
 
         // Enforce one-active-per-scope by expiring the current active cart (if any)
-        if let active = try await getActiveCart(storeID: source.storeID, profileID: source.profileID) {
-            if active.status == .active {
-                var expired = active
-                expired.status = .expired
-                _ = try await saveCartAfterMutation(expired)
-            }
+        try await expireActiveCartIfNeeded(storeID: source.storeID, profileID: source.profileID)
+
+        let newCart = makeActiveCartCopy(from: source, profileID: source.profileID)
+
+        return try await persistNewCart(newCart, setAsActive: true)
+    }
+
+    /// Migrates the active guest cart to a logged-in profile for a given store.
+    ///
+    /// Strategies:
+    /// - `.move`: re-scopes the same cart to the profile (same `CartID`).
+    /// - `.copyAndDelete`: creates a new profile cart copy and deletes the guest cart.
+    ///
+    /// If the profile already has an active cart for the store, the migration fails with a conflict error.
+    public func migrateGuestActiveCart(
+        storeID: StoreID,
+        to profileID: UserProfileID,
+        strategy: GuestMigrationStrategy
+    ) async throws -> Cart {
+
+        // Find active guest cart
+        guard let guestActive = try await getActiveCart(storeID: storeID) else {
+            throw CartError.conflict(
+                reason: "No active guest cart found for store \(storeID.rawValue)"
+            )
         }
 
-        let now = Date()
+        // Enforce invariant: profile must not already have an active cart
+        if try await getActiveCart(storeID: storeID, profileID: profileID) != nil {
+            throw CartError.conflict(
+                reason: "Profile \(profileID.rawValue) already has an active cart for store \(storeID.rawValue)"
+            )
+        }
 
-        let newCart = Cart(
-            id: CartID.generate(),
-            storeID: source.storeID,
-            profileID: source.profileID,
-            items: cloneItemsRegeneratingIDs(from: source.items),
-            status: .active,
-            createdAt: now,
-            updatedAt: now,
-            metadata: source.metadata,
-            displayName: source.displayName,
-            context: source.context,
-            storeImageURL: source.storeImageURL,
-            minSubtotal: source.minSubtotal,
-            maxItemCount: source.maxItemCount
-        )
+        switch strategy {
+        case .move:
+            let moved = Cart(
+                id: guestActive.id,
+                storeID: guestActive.storeID,
+                profileID: profileID,
+                items: guestActive.items,
+                status: .active,
+                createdAt: guestActive.createdAt,
+                updatedAt: Date(),
+                metadata: guestActive.metadata,
+                displayName: guestActive.displayName,
+                context: guestActive.context,
+                storeImageURL: guestActive.storeImageURL,
+                minSubtotal: guestActive.minSubtotal,
+                maxItemCount: guestActive.maxItemCount
+            )
 
-        try await config.cartStore.saveCart(newCart)
-        config.analyticsSink.cartCreated(newCart)
+            let saved = try await saveCartAfterMutation(moved)
 
-        config.analyticsSink.activeCartChanged(
-            newActiveCartId: newCart.id,
-            storeId: newCart.storeID,
-            profileId: newCart.profileID
-        )
+            config.analyticsSink.activeCartChanged(
+                newActiveCartId: saved.id,
+                storeId: storeID,
+                profileId: profileID
+            )
 
-        return newCart
+            return saved
+
+        case .copyAndDelete:
+            let newCart = makeActiveCartCopy(from: guestActive, profileID: profileID)
+
+            let saved = try await persistNewCart(newCart, setAsActive: true)
+
+            try await deleteCart(id: guestActive.id)
+
+            return saved
+        }
     }
     
     // MARK: - Pricing
@@ -293,9 +327,7 @@ public actor CartManager {
         context: CartPricingContext? = nil,
         with promotions: [PromotionKind]? = nil
     ) async throws -> CartTotals {
-        guard let cart = try await config.cartStore.loadCart(id: cartID) else {
-            throw CartError.conflict(reason: "Cart not found")
-        }
+        let cart = try await loadCartOrThrow(cartID)
         
         // If caller didn’t provide a context, build a plain one from the cart.
         let effectiveContext = context ?? .plain(
@@ -389,10 +421,7 @@ public actor CartManager {
     public func validateBeforeCheckout(
         cartID: CartID
     ) async throws -> CartValidationResult {
-        guard let cart = try await config.cartStore.loadCart(id: cartID) else {
-            throw CartError.conflict(reason: "Cart not found")
-        }
-        
+        let cart = try await loadCartOrThrow(cartID)
         return await config.validationEngine.validate(cart: cart)
     }
     
@@ -488,9 +517,7 @@ public actor CartManager {
     /// Non-existing or non-active carts result in a `CartError.conflict`
     /// so that callers know the operation cannot proceed on this cart.
     private func loadMutableCart(for id: CartID) async throws -> Cart {
-        guard let cart = try await config.cartStore.loadCart(id: id) else {
-            throw CartError.conflict(reason: "Cart not found")
-        }
+        let cart = try await loadCartOrThrow(id)
         
         guard cart.status == .active else {
             throw CartError.conflict(reason: "Cart is not active")
@@ -504,9 +531,7 @@ public actor CartManager {
     /// Status transitions themselves are governed by
     /// `ensureValidStatusTransition(from:to:)`.
     private func loadCartForStatusChange(id: CartID) async throws -> Cart {
-        guard let cart = try await config.cartStore.loadCart(id: id) else {
-            throw CartError.conflict(reason: "Cart not found")
-        }
+        let cart = try await loadCartOrThrow(id)
         return cart
     }
     
@@ -596,5 +621,86 @@ public actor CartManager {
                 availableStock: item.availableStock
             )
         }
+    }
+    
+    /// Creates a new active cart by copying the contents of an existing cart.
+    ///
+    /// Used by:
+    /// - Reorder flows.
+    /// - Guest → profile migration (copy strategy).
+    ///
+    /// The new cart:
+    /// - Has a new `CartID`,
+    /// - Regenerates all `CartItemID`s,
+    /// - Resets timestamps,
+    /// - Preserves cart-level metadata and configuration.
+    private func makeActiveCartCopy(
+        from source: Cart,
+        profileID: UserProfileID?
+    ) -> Cart {
+        let now = Date()
+        return Cart(
+            id: CartID.generate(),
+            storeID: source.storeID,
+            profileID: profileID,
+            items: cloneItemsRegeneratingIDs(from: source.items),
+            status: .active,
+            createdAt: now,
+            updatedAt: now,
+            metadata: source.metadata,
+            displayName: source.displayName,
+            context: source.context,
+            storeImageURL: source.storeImageURL,
+            minSubtotal: source.minSubtotal,
+            maxItemCount: source.maxItemCount
+        )
+    }
+    
+    /// Persists a newly-created cart and emits creation analytics.
+    ///
+    /// Optionally emits `activeCartChanged` when the cart should become
+    /// the active cart for its scope.
+    @discardableResult
+    private func persistNewCart(
+        _ cart: Cart,
+        setAsActive: Bool
+    ) async throws -> Cart {
+        try await config.cartStore.saveCart(cart)
+        config.analyticsSink.cartCreated(cart)
+
+        if setAsActive {
+            config.analyticsSink.activeCartChanged(
+                newActiveCartId: cart.id,
+                storeId: cart.storeID,
+                profileId: cart.profileID
+            )
+        }
+
+        return cart
+    }
+    
+    /// Expires the currently active cart for the given scope, if one exists.
+    ///
+    /// Used to enforce the invariant:
+    /// - Only one active cart per `(storeID, profileID)` scope.
+    private func expireActiveCartIfNeeded(
+        storeID: StoreID,
+        profileID: UserProfileID?
+    ) async throws {
+        if let active = try await getActiveCart(storeID: storeID, profileID: profileID) {
+            var expired = active
+            expired.status = .expired
+            _ = try await saveCartAfterMutation(expired)
+        }
+    }
+    
+    /// Loads a cart by ID or throws a conflict error if it does not exist.
+    ///
+    /// Centralizes the \"cart not found\" error handling.
+    private func loadCartOrThrow(_ id: CartID) async throws -> Cart {
+        guard let cart = try await config.cartStore.loadCart(id: id) else {
+            throw CartError.conflict(reason: "Cart not found")
+        }
+        return cart
     }
 }

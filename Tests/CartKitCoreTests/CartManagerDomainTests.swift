@@ -331,6 +331,111 @@ struct CartManagerDomainTests {
         let a = try #require(stillActiveA)
         #expect(a.status == .active)   // untouched
     }
+    
+    //MARK: - Migrate from guest to logged in
+    
+    @Test
+    func migrateGuestActiveCart_move_rescopesSameCart() async throws {
+        let storeID = StoreID("store_move")
+        let profileID = UserProfileID("profile_1")
+
+        var guest = CartTestFixtures.guestCart(storeID: storeID)
+        guest.status = .active
+
+        let manager = makeManager(initialCarts: [guest])
+
+        let migrated = try await manager.migrateGuestActiveCart(
+            storeID: storeID,
+            to: profileID,
+            strategy: .move
+        )
+
+        #expect(migrated.id == guest.id)
+        #expect(migrated.profileID == profileID)
+        #expect(migrated.status == .active)
+
+        // Guest scope should now be empty
+        let guestActive = try await manager.getActiveCart(storeID: storeID, profileID: nil)
+        #expect(guestActive == nil)
+    }
+
+    @Test
+    func migrateGuestActiveCart_copyAndDelete_createsNewProfileCart_andDeletesGuest() async throws {
+        let storeID = StoreID("store_copy")
+        let profileID = UserProfileID("profile_2")
+
+        var guest = CartTestFixtures.guestCart(storeID: storeID)
+        guest.status = .active
+
+        let manager = makeManager(initialCarts: [guest])
+
+        let migrated = try await manager.migrateGuestActiveCart(
+            storeID: storeID,
+            to: profileID,
+            strategy: .copyAndDelete
+        )
+
+        #expect(migrated.id != guest.id)
+        #expect(migrated.profileID == profileID)
+        #expect(migrated.status == .active)
+
+        // Guest cart should be deleted
+        let deletedGuest = try await manager.getCart(id: guest.id)
+        #expect(deletedGuest == nil)
+
+        // Items cloned with new IDs
+        let srcByProduct = Dictionary(uniqueKeysWithValues: guest.items.map { ($0.productID, $0) })
+        for item in migrated.items {
+            let original = try #require(srcByProduct[item.productID])
+            #expect(item.id != original.id)
+            #expect(item.quantity == original.quantity)
+        }
+    }
+
+    @Test
+    func migrateGuestActiveCart_throwsConflict_whenProfileHasActiveCart() async throws {
+        let storeID = StoreID("store_conflict")
+        let profileID = UserProfileID("profile_conflict")
+
+        var guest = CartTestFixtures.guestCart(storeID: storeID)
+        guest.status = .active
+
+        var profileCart = CartTestFixtures.loggedInCart(
+            storeID: storeID,
+            profileID: profileID
+        )
+        profileCart.status = .active
+
+        let manager = makeManager(initialCarts: [guest, profileCart])
+
+        await #expect(throws: CartError.self) {
+            _ = try await manager.migrateGuestActiveCart(
+                storeID: storeID,
+                to: profileID,
+                strategy: .move
+            )
+        }
+
+        // Ensure nothing changed
+        let stillGuest = try await manager.getCart(id: guest.id)
+        #expect(stillGuest?.profileID == nil)
+
+        let stillProfile = try await manager.getCart(id: profileCart.id)
+        #expect(stillProfile?.status == .active)
+    }
+    
+    @Test
+    func migrateGuestActiveCart_throwsConflict_whenNoActiveGuestCart() async throws {
+        let manager = makeManager()
+
+        await #expect(throws: CartError.self) {
+            _ = try await manager.migrateGuestActiveCart(
+                storeID: StoreID("store_none"),
+                to: UserProfileID("profile_none"),
+                strategy: .move
+            )
+        }
+    }
 }
 
 // MARK: - Test doubles
