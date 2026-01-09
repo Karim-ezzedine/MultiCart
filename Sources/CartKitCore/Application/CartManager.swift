@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 /// High-level facade / application service for working with carts.
 ///
@@ -14,6 +15,11 @@ public actor CartManager {
     // MARK: - Dependencies
     
     private let config: CartConfiguration
+    
+    // MARK: - Observation
+
+    private typealias ObserverID = UUID
+    private var eventObservers: [ObserverID: AsyncStream<CartEvent>.Continuation] = [:]
     
     // MARK: - Init
     
@@ -155,6 +161,11 @@ public actor CartManager {
                 storeId: updatedCart.storeID,
                 profileId: updatedCart.profileID
             )
+            emit(.activeCartChanged(
+                storeID: updatedCart.storeID,
+                profileID: updatedCart.profileID,
+                cartID: nil
+            ))
         }
         
         return updatedCart
@@ -215,12 +226,19 @@ public actor CartManager {
         try await config.cartStore.deleteCart(id: id)
         config.analyticsSink.cartDeleted(id: id)
         
+        emit(.cartDeleted(id))
+        
         if cart.status == .active {
             config.analyticsSink.activeCartChanged(
                 newActiveCartId: nil,
                 storeId: cart.storeID,
                 profileId: cart.profileID
             )
+            emit(.activeCartChanged(
+                storeID: cart.storeID,
+                profileID: cart.profileID,
+                cartID: nil
+            ))
         }
     }
     
@@ -293,6 +311,8 @@ public actor CartManager {
                 storeId: storeID,
                 profileId: profileID
             )
+            
+            emit(.activeCartChanged(storeID: storeID, profileID: profileID, cartID: saved.id))
 
             return saved
 
@@ -517,6 +537,40 @@ public actor CartManager {
         )
     }
     
+    // MARK: - Observes
+    
+    /// Observes cart events emitted by this `CartManager` instance.
+    ///
+    /// Events are emitted only after successful persistence (save/delete).
+    public func observeEvents() -> AsyncStream<CartEvent> {
+        AsyncStream { continuation in
+            let id = ObserverID()
+            eventObservers[id] = continuation
+
+            continuation.onTermination = { [id] _ in
+                Task { await self.removeObserver(id) }
+            }
+        }
+    }
+    
+    /// Combine wrapper for `observeEvents()`.
+    /// - Note: `async` is required because `CartManager` is an actor and this calls an actor-isolated method.
+    @MainActor
+    public func eventsPublisher() async -> AnyPublisher<CartEvent, Never> {
+        let stream = await observeEvents() // actor hop
+        return AsyncStreamPublisher(stream).eraseToAnyPublisher()
+    }
+    
+    private func removeObserver(_ id: ObserverID) {
+        eventObservers[id] = nil
+    }
+
+    private func emit(_ event: CartEvent) {
+        for continuation in eventObservers.values {
+            continuation.yield(event)
+        }
+    }
+    
     // MARK: - Helpers
     
     /// Loads a cart and enforces that it is present and mutable.
@@ -589,6 +643,7 @@ public actor CartManager {
         mutableCart.updatedAt = Date()
         try await config.cartStore.saveCart(mutableCart)
         config.analyticsSink.cartUpdated(mutableCart)
+        emit(.cartUpdated(mutableCart.id))
         return mutableCart
     }
     
@@ -679,12 +734,19 @@ public actor CartManager {
         try await config.cartStore.saveCart(cart)
         config.analyticsSink.cartCreated(cart)
 
+        emit(.cartCreated(cart.id))
+
         if setAsActive {
             config.analyticsSink.activeCartChanged(
                 newActiveCartId: cart.id,
                 storeId: cart.storeID,
                 profileId: cart.profileID
             )
+            emit(.activeCartChanged(
+                storeID: cart.storeID,
+                profileID: cart.profileID,
+                cartID: cart.id
+            ))
         }
 
         return cart
