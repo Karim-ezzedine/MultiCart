@@ -435,19 +435,22 @@ public actor CartManager {
         to cartID: CartID,
         item: CartItem
     ) async throws -> CartUpdateResult {
+
         var cart = try await loadMutableCart(for: cartID)
-        
         try await validateItemChange(in: cart, item: item)
-        
+
         cart.items.append(item)
-        
-        let updatedCart = try await saveCartAfterMutation(cart)
+
+        let (cartToPersist, conflicts) = try await detectAndResolveCatalogConflictsIfNeeded(for: cart)
+        let updatedCart = try await saveCartAfterMutation(cartToPersist)
+
         config.analyticsSink.itemAdded(item, in: updatedCart)
-        
+
         return CartUpdateResult(
             cart: updatedCart,
             removedItems: [],
-            changedItems: [item]
+            changedItems: [item],
+            conflicts: conflicts
         )
     }
     
@@ -460,23 +463,27 @@ public actor CartManager {
         in cartID: CartID,
         item updatedItem: CartItem
     ) async throws -> CartUpdateResult {
+
         var cart = try await loadMutableCart(for: cartID)
-        
+
         guard let index = cart.items.firstIndex(where: { $0.id == updatedItem.id }) else {
             throw CartError.conflict(reason: "Item not found in cart")
         }
-        
+
         try await validateItemChange(in: cart, item: updatedItem)
-        
+
         cart.items[index] = updatedItem
-        
-        let updatedCart = try await saveCartAfterMutation(cart)
+
+        let (cartToPersist, conflicts) = try await detectAndResolveCatalogConflictsIfNeeded(for: cart)
+        let updatedCart = try await saveCartAfterMutation(cartToPersist)
+
         config.analyticsSink.itemUpdated(updatedItem, in: updatedCart)
-        
+
         return CartUpdateResult(
             cart: updatedCart,
             removedItems: [],
-            changedItems: [updatedItem]
+            changedItems: [updatedItem],
+            conflicts: conflicts
         )
     }
     
@@ -488,21 +495,25 @@ public actor CartManager {
         from cartID: CartID,
         itemID: CartItemID
     ) async throws -> CartUpdateResult {
+
         var cart = try await loadMutableCart(for: cartID)
-        
+
         guard let index = cart.items.firstIndex(where: { $0.id == itemID }) else {
             throw CartError.conflict(reason: "Item not found in cart")
         }
-        
+
         let removedItem = cart.items.remove(at: index)
-        
-        let updatedCart = try await saveCartAfterMutation(cart)
+
+        let (cartToPersist, conflicts) = try await detectAndResolveCatalogConflictsIfNeeded(for: cart)
+        let updatedCart = try await saveCartAfterMutation(cartToPersist)
+
         config.analyticsSink.itemRemoved(itemId: itemID, from: updatedCart)
-        
+
         return CartUpdateResult(
             cart: updatedCart,
             removedItems: [removedItem],
-            changedItems: []
+            changedItems: [],
+            conflicts: conflicts
         )
     }
     
@@ -702,5 +713,39 @@ public actor CartManager {
             throw CartError.conflict(reason: "Cart not found")
         }
         return cart
+    }
+    
+    /// Detects catalog conflicts for a proposed cart and optionally resolves them.
+    ///
+    /// - Returns:
+    ///   - `cartToPersist`: the cart that should be persisted (original or resolved),
+    ///   - `conflicts`: the detected catalog conflicts (always returned when present).
+    private func detectAndResolveCatalogConflictsIfNeeded(
+        for proposedCart: Cart
+    ) async throws -> (cartToPersist: Cart, conflicts: [CartCatalogConflict]) {
+
+        let conflicts = await config.catalogConflictDetector.detectConflicts(for: proposedCart)
+
+        // No conflicts → persist as-is.
+        guard !conflicts.isEmpty else {
+            return (proposedCart, [])
+        }
+
+        // Conflicts, but no resolver configured → persist as-is and report conflicts.
+        guard let resolver = config.conflictResolver else {
+            return (proposedCart, conflicts)
+        }
+
+        // Conflicts + resolver → let client decide the policy.
+        let reason = CartError.conflict(reason: "Cart has catalog conflicts")
+        let resolution = await resolver.resolveConflict(for: proposedCart, reason: reason)
+
+        switch resolution {
+        case .acceptModifiedCart(let resolvedCart):
+            return (resolvedCart, conflicts)
+
+        case .rejectWithError(let error):
+            throw error
+        }
     }
 }

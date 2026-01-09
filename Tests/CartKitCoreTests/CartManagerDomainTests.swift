@@ -8,13 +8,15 @@ struct CartManagerDomainTests {
     // MARK: - Factory
 
     private func makeManager(
-        initialCarts: [Cart] = []
+        initialCarts: [Cart] = [],
+        detector: CartCatalogConflictDetector = NoOpCartCatalogConflictDetector()
     ) -> CartManager {
         let store = InMemoryCartStore(initialCarts: initialCarts)
 
         let config = CartConfiguration(
             cartStore: store,
-            conflictResolver: NoOpConflictResolver()
+            conflictResolver: NoOpConflictResolver(),
+            catalogConflictDetector: detector
         )
 
         return CartManager(configuration: config)
@@ -436,6 +438,40 @@ struct CartManagerDomainTests {
             )
         }
     }
+    
+    //MARK: - Reports Conflicts
+    
+    @Test
+    func addItem_reportsCatalogConflicts() async throws {
+        let storeID = StoreID(rawValue: "store_conflict_add")
+
+        let detector = FakeCatalogConflictDetector { cart in
+            guard let item = cart.items.first else { return [] }
+            return [
+                CartCatalogConflict(
+                    itemID: item.id,
+                    productID: item.productID,
+                    kind: .removedFromCatalog
+                )
+            ]
+        }
+
+        let manager = makeManager(detector: detector)
+        let cart = try await manager.setActiveCart(storeID: storeID)
+
+        let item = CartItem(
+            id: CartItemID.generate(),
+            productID: "burger",
+            quantity: 1,
+            unitPrice: Money(amount: 10, currencyCode: "USD"),
+            modifiers: [],
+            imageURL: nil
+        )
+
+        let result = try await manager.addItem(to: cart.id, item: item)
+
+        #expect(result.conflicts.count == 1)
+    }
 }
 
 // MARK: - Test doubles
@@ -492,4 +528,16 @@ private struct NoOpAnalyticsSink: CartAnalyticsSink, Sendable {
     func itemAdded(_ item: CartItem, in cart: Cart) {}
     func itemUpdated(_ item: CartItem, in cart: Cart) {}
     func itemRemoved(itemId: CartItemID, from cart: Cart) {}
+}
+
+private struct FakeCatalogConflictDetector: CartCatalogConflictDetector, Sendable {
+    let handler: @Sendable (Cart) -> [CartCatalogConflict]
+    
+    init(_ handler: @escaping @Sendable (Cart) -> [CartCatalogConflict]) {
+        self.handler = handler
+    }
+    
+    func detectConflicts(for cart: Cart) async -> [CartCatalogConflict] {
+        handler(cart)
+    }
 }

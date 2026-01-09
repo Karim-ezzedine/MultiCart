@@ -8,6 +8,8 @@ public extension CartConfiguration {
         pricingEngine: CartPricingEngine = DefaultCartPricingEngine(),
         promotionEngine: PromotionEngine = DefaultPromotionEngine(),
         validationEngine: CartValidationEngine = DefaultCartValidationEngine(),
+        conflictResolver: CartConflictResolver? = nil,
+        catalogConflictDetector: CartCatalogConflictDetector = NoOpCartCatalogConflictDetector(),
         analytics: CartAnalyticsSink = NoOpCartAnalyticsSink()
     ) async throws -> CartConfiguration {
 
@@ -18,6 +20,8 @@ public extension CartConfiguration {
             pricingEngine: pricingEngine,
             promotionEngine: promotionEngine,
             validationEngine: validationEngine,
+            conflictResolver: conflictResolver,
+            catalogConflictDetector: catalogConflictDetector,
             analyticsSink: analytics
         )
     }

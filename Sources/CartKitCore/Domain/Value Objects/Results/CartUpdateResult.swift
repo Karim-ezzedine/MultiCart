@@ -14,13 +14,18 @@ public struct CartUpdateResult: Sendable {
     /// Items that were added or updated as part of this operation.
     public let changedItems: [CartItem]
     
+    /// Conflicts detected against the current catalog state.
+    public let conflicts: [CartCatalogConflict]
+    
     public init(
         cart: Cart,
         removedItems: [CartItem] = [],
-        changedItems: [CartItem] = []
+        changedItems: [CartItem] = [],
+        conflicts: [CartCatalogConflict] = []
     ) {
         self.cart = cart
         self.removedItems = removedItems
         self.changedItems = changedItems
+        self.conflicts = conflicts
     }
 }

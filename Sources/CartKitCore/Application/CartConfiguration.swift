@@ -10,6 +10,7 @@ public struct CartConfiguration: Sendable {
     public let promotionEngine: PromotionEngine
     public let validationEngine: CartValidationEngine
     public let conflictResolver: CartConflictResolver?
+    public let catalogConflictDetector: CartCatalogConflictDetector
     public let analyticsSink: CartAnalyticsSink
 
     public init(
@@ -18,6 +19,7 @@ public struct CartConfiguration: Sendable {
         promotionEngine: PromotionEngine = DefaultPromotionEngine(),
         validationEngine: CartValidationEngine = DefaultCartValidationEngine(),
         conflictResolver: CartConflictResolver? = nil,
+        catalogConflictDetector: CartCatalogConflictDetector = NoOpCartCatalogConflictDetector(),
         analyticsSink: CartAnalyticsSink = NoOpCartAnalyticsSink()
     ) {
         self.cartStore = cartStore
@@ -25,6 +27,7 @@ public struct CartConfiguration: Sendable {
         self.promotionEngine = promotionEngine
         self.validationEngine = validationEngine
         self.conflictResolver = conflictResolver
+        self.catalogConflictDetector = catalogConflictDetector
         self.analyticsSink = analyticsSink
     }
 }
