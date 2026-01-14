@@ -122,7 +122,7 @@ Guest carts are local-only, not tied to a user account, and can be migrated late
 
 There is no separate “guest cart” type. Guest behavior is a semantic interpretation, not a different model.
 
---
+---
 
 ### Profile carts
 
