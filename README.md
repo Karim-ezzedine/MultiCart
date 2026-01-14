@@ -2,7 +2,7 @@
 
 A modular, local multi-cart SDK for iOS apps.
 
-CartKit lets you manage multiple carts per store and per user scope (guest or profile), with pluggable storage (Core Data, SwiftData, or your own) and configurable pricing / validation / promotion / conflict-resolution engines.
+CartKit lets you manage multiple carts per store and per user scope (guest or profile), with pluggable storage (Core Data, SwiftData, or your own) and configurable pricing/validation/promotion / conflict-resolution engines.
 
 **CartKit at a glance**
 - Local-first cart management (no networking)
@@ -71,8 +71,7 @@ Applications are expected to assemble a `CartConfiguration` in their dependency-
 
 ### Building a CartConfiguration
 
-A `CartConfiguration` wires together:
-
+**A `CartConfiguration` wires together:**
 - Cart storage
 - Pricing, validation, and promotion engines
 - Catalog conflict handling
@@ -161,8 +160,7 @@ Applications are expected to resolve storage once at composition time.
 
 ### iOS 15 vs iOS 17 guidance
 
-CartKit provides two built-in storage implementations:
-
+**CartKit provides two built-in storage implementations:**
 - **Core Data**
   - Available on iOS 15 and later
   - Recommended for apps supporting iOS 15 or 16
@@ -190,8 +188,7 @@ Custom implementations must respect domain invariants but are otherwise unconstr
 
 CartKit keeps the domain model stable and exposes variability through explicit extension points (“engines”). This allows applications to adapt policies (pricing, validation, promotions, conflict handling) without forking domain logic or leaking infrastructure concerns into feature code.
 
-From a Clean Architecture perspective:
-
+**From a Clean Architecture perspective:**
 - **Domain/Core:** Entities and engine protocols define *what* must be true.
 - **Application:** `CartManager` orchestrates *when* policies are applied and enforces invariants.
 - **Infrastructure:** Concrete engine implementations and persistence are injected at composition time.
@@ -211,12 +208,12 @@ Engines are passed into `CartConfiguration`, making behavior explicit, testable,
 
 The pricing engine is responsible for computing cart totals based on the cart’s contents.
 
-**Typical responsibilities**
+**Typical responsibilities:**
 - Subtotal calculation
 - Fee and tax inclusion (if applicable)
 - Final total computation
 
-**Pricing is intentionally isolated so applications can**
+**Pricing is intentionally isolated so applications can:**
 - Keep calculations consistent with backend rules
 - Swap pricing logic per market or experiment
 - Test totals deterministically
@@ -225,8 +222,7 @@ The pricing engine is responsible for computing cart totals based on the cart’
 
 The validation engine determines whether the cart is eligible for progression (for example, before checkout).
 
-Typical responsibilities include:
-
+**Typical responsibilities include:**
 - Item-level rules (quantity bounds, required metadata, etc.)
 - Cart-level rules (minimum order value, incompatible combinations, etc.)
 - Producing structured validation outcomes
@@ -237,8 +233,7 @@ Validation is a key boundary: CartKit can manage carts for guests, but applicati
 
 Promotions are modeled as policy: how discounts/rewards are discovered, applied, and represented.
 
-Typical responsibilities include:
-
+**Typical responsibilities include:**
 - Applying promo codes
 - Automatic offers (buy X get Y, tiered discounts, etc.)
 - Updating applied promotions as cart contents change
@@ -247,18 +242,16 @@ Promotion behavior varies significantly between products; keeping it behind an e
 
 ### Catalog conflict handling (client responsibility)
 
-CartKit supports multiple carts and multiple scopes, which introduces the possibility of conflicts when:
-
+**CartKit supports multiple carts and multiple scopes, which introduces the possibility of conflicts when:**
 - A product becomes unavailable
 - Catalog data changes (price, modifiers, constraints)
 - A cart is restored after time has passed
 - Two sources propose differing representations for the same item
 
-CartKit exposes explicit conflict detection and resolution extension points so the client can define the correct business behavior. Examples include:
-
-- “Remove unavailable items automatically”
-- “Keep items but mark them invalid until user confirms”
-- “Prefer latest catalog price vs preserve original price”
+**CartKit exposes explicit conflict detection and resolution extension points so the client can define the correct business behavior. Examples include:**
+- “Remove unavailable items automatically.”
+- “Keep items but mark them invalid until the user confirms.”
+- “Prefer latest catalog price vs preserve original price.”
 
 This is intentionally client-owned because conflict strategy is product-specific and often UX-driven.
 
@@ -275,8 +268,7 @@ Applications can plug in their own analytics/logging implementations in the conf
 
 ### Practical guidance
 
-Recommended defaults:
-
+**Recommended defaults:**
 - Keep engines lightweight and deterministic.
 - Avoid networking inside engines where possible (prefer pre-fetched inputs).
 - Treat engines as pure policy objects: given the same input, they should produce the same output.
